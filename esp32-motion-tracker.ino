@@ -9,8 +9,8 @@
 Servo panServo;
 Servo tiltServo;
 
-int currentPanAngle = 90;
-int currentTiltAngle = 90;
+int currentPanAngle = 0;
+int currentTiltAngle = 0;
 
 int xSlewCount = 0;
 int ySlewCount = 0;
