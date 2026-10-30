@@ -1,20 +1,24 @@
 #include "esp_camera.h"
-#include <ESP32Servo.h>
+#include <Servo.h>
 
 // --- Servo Configuration ---
 #define PAN_PIN  12
 #define TILT_PIN 13
-// #define BLINK_PIN 15
+#define BLINK_PIN 15
 
 Servo panServo;
 Servo tiltServo;
+Servo blinkServo;
 
 int currentPanAngle = 0;
 int currentTiltAngle = 0;
+int currentBlinkAngle = 0;
 
 int xSlewCount = 0;
 int ySlewCount = 0;
 int slewMax = 10;
+long blinkInterval = 0;
+bool isBlinking = false;
 float xValues[10];
 float yValues[10];
 
@@ -26,7 +30,7 @@ unsigned long previousMillis = 0;
 #define HEIGHT 120
 #define BRIGHTNESS_THRESHOLD 20     // Pixel brightness change sensitivity
 #define CHANGED_PIXELS_THRESHOLD 50 // Minimum changed pixels to qualify as motion
-#define COMPARISON_INTERVAL 20 // Sets the speed of the comparison
+
 
 uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 
@@ -48,14 +52,55 @@ uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 #define HREF_GPIO_NUM  23
 #define PCLK_GPIO_NUM  22
 
+#define BLINK_SERVO_MIN 0
+#define BLINK_SERVO_MAX 180
+
+// Frequency for servo library
+// TODO: is this the same as the processor frequency?
+const int frequency = 200; // Hz
+
 void setup() {
   Serial.begin(115200);
 
   // Initialize Servos
-  panServo.attach(PAN_PIN);
-  tiltServo.attach(TILT_PIN);
-  panServo.write(currentPanAngle);
-  tiltServo.write(currentTiltAngle);
+  // panServo.attach(PAN_PIN);
+  // tiltServo.attach(TILT_PIN);
+  // blinkServo.attach(BLINK_PIN);
+  // panServo.write(currentPanAngle);
+  // tiltServo.write(currentTiltAngle);
+  // blinkServo.write(currentBlinkAngle);
+
+panServo.attach(
+    PAN_PIN, 
+    Servo::CHANNEL_NOT_ATTACHED, 
+    Servo::DEFAULT_MIN_ANGLE, 
+    Servo::DEFAULT_MAX_ANGLE, 
+    Servo::DEFAULT_MIN_PULSE_WIDTH_US, 
+    Servo::DEFAULT_MAX_PULSE_WIDTH_US, 
+    frequency
+);
+
+tiltServo.attach(
+    TILT_PIN, 
+    Servo::CHANNEL_NOT_ATTACHED, 
+    Servo::DEFAULT_MIN_ANGLE, 
+    Servo::DEFAULT_MAX_ANGLE, 
+    Servo::DEFAULT_MIN_PULSE_WIDTH_US, 
+    Servo::DEFAULT_MAX_PULSE_WIDTH_US, 
+    frequency
+);
+
+blinkServo.attach(
+    BLINK_PIN, 
+    Servo::CHANNEL_NOT_ATTACHED, 
+    Servo::DEFAULT_MIN_ANGLE, 
+    Servo::DEFAULT_MAX_ANGLE, 
+    Servo::DEFAULT_MIN_PULSE_WIDTH_US, 
+    Servo::DEFAULT_MAX_PULSE_WIDTH_US, 
+    frequency
+);
+
+  blinkInterval = random(3, 6);
 
   // Camera config
   camera_config_t config;
@@ -93,11 +138,30 @@ void setup() {
 }
 
 void loop() {
+        // Blink movement
 
-  //unsigned long currentMillis = millis();
+      // unsigned long currentMillis = millis();
+      // // Serial.print(previousMillis);
+      // // Serial.println(" previousMillis");
+      // // Serial.print(currentMillis);
+      // // Serial.println(" currentMillis");
 
-  // Runs frame comparison logic at the speed of COMPARISON_INTERVAL
-  // if (currentMillis - previousMillis >= COMPARISON_INTERVAL) {
+      // if(previousMillis == 0){
+      //   previousMillis = currentMillis;
+      // }
+      // if (!isBlinking) {
+      //   if(currentMillis - previousMillis >= blinkInterval){
+      //     blinkServo.write(BLINK_SERVO_MAX);
+      //     isBlinking = true;
+      //   }
+      // }  else {
+      //   if(blinkServo.read() == BLINK_SERVO_MAX) {
+      //       // blinkServo.write(BLINK_SERVO_MIN);
+      //       isBlinking = false;
+      //       previousMillis = currentMillis;
+      //       blinkInterval = random(3, 6);
+      //   }
+      // }
 
       // Gets a still image frame from the camera and saves it to the variable fb
       camera_fb_t *fb = esp_camera_fb_get();
@@ -178,7 +242,7 @@ void loop() {
 
         // 4. Send angles to the servos
         panServo.write(angleX);
-        tiltServo.write(angleY);
+        // tiltServo.write(angleY);
         // panServo.write(xPos);
         // tiltServo.write(180 - yPos);
 
@@ -211,9 +275,12 @@ void loop() {
 
         //   }
 
-      esp_camera_fb_return(fb); // Release memory buffer
+
       // delay(20); // Control sample rate loop timing
+
+
   // }
+        esp_camera_fb_return(fb); // Release memory buffer
 }
 
 // void compare_frames(const camera_fb_t *fb, const uint8_t *prev_frame){
