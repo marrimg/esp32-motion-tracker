@@ -158,7 +158,29 @@ void loop() {
         }
         xSmoov /= slewMax;
         ySmoov /= slewMax;
-        Serial.println(ySmoov);
+
+        // xSmoov = xSmoov * -1;
+        // Serial.println(fb->height);
+        // Serial.println(fb->width);
+        // Serial.println(-xSmoov);
+
+        // 2. Map Cartesian coordinates to servo angles (0 to 180 degrees)
+        // TODO: Check xSmoov and ySmoov range
+        // long map(value, fromLow, fromHigh, toLow, toHigh);
+        int angleX = map(fb->width - xSmoov, 0, fb->width, 0, 180);
+        int angleY = map(ySmoov, 0, fb->height, 0, 180);
+
+        // 3. Constrain angles to safe servo limits
+        angleX = constrain(angleX, 0, 180);
+        angleY = constrain(angleY, 0, 180);
+
+        Serial.println(angleX);
+
+        // 4. Send angles to the servos
+        panServo.write(angleX);
+        tiltServo.write(angleY);
+        // panServo.write(xPos);
+        // tiltServo.write(180 - yPos);
 
         // // Calculate center deviation error (Target frame center is 80, 60)
         // int errorX = avgX - (WIDTH / 2);
