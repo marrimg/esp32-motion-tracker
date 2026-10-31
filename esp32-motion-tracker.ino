@@ -25,12 +25,14 @@ float yValues[10];
 // Time tracking for frame capture frequency
 unsigned long lastFrameTime = 0;
 
+int lastTargetPanAngle = 0;
+
 // --- Motion Detection Configurations ---
 #define WIDTH 160
 #define HEIGHT 120
-#define BRIGHTNESS_THRESHOLD 20     // Pixel brightness change sensitivity
-#define CHANGED_PIXELS_THRESHOLD 50 // Minimum changed pixels to qualify as motion
-#define FRAME_CAPTURE_FREQUENCY 200
+#define BRIGHTNESS_THRESHOLD 100     // Pixel brightness change sensitivity
+#define CHANGED_PIXELS_THRESHOLD 20 // Minimum changed pixels to qualify as motion
+#define FRAME_CAPTURE_FREQUENCY 500
 
 uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 
@@ -183,22 +185,22 @@ void loop() {
           float avgX = sumX / changedPixelCount;
           float avgY = sumY / changedPixelCount;
 
-          xSlewCount += 1;
-          if(xSlewCount > slewMax) xSlewCount = 0;
-          xValues[xSlewCount] = avgX;
-          float xSmoov = 0;
+          // xSlewCount += 1;
+          // if(xSlewCount > slewMax) xSlewCount = 0;
+          // xValues[xSlewCount] = avgX;
+          // float xSmoov = 0;
 
-          ySlewCount += 1;
-          if(ySlewCount > slewMax) ySlewCount = 0;
-          yValues[ySlewCount] = avgY;
-          float ySmoov = 0;
+          // ySlewCount += 1;
+          // if(ySlewCount > slewMax) ySlewCount = 0;
+          // yValues[ySlewCount] = avgY;
+          // float ySmoov = 0;
 
-          for(int s = 0; s < slewMax; s++) {
-            xSmoov +=  xValues[s];
-            ySmoov +=  yValues[s];
-          }
-          xSmoov /= slewMax;
-          ySmoov /= slewMax;
+          // for(int s = 0; s < slewMax; s++) {
+          //   xSmoov +=  xValues[s];
+          //   ySmoov +=  yValues[s];
+          // }
+          // xSmoov /= slewMax;
+          // ySmoov /= slewMax;
 
           // xSmoov = xSmoov * -1;
           // Serial.println(fb->height);
@@ -208,17 +210,24 @@ void loop() {
           // 2. Map Cartesian coordinates to servo angles (0 to 180 degrees)
           // TODO: Check xSmoov and ySmoov range
           // long map(value, fromLow, fromHigh, toLow, toHigh);
-          int angleX = map(fb->width - xSmoov, 0, fb->width, 0, 180);
-          int angleY = map(ySmoov, 0, fb->height, 0, 180);
+          int angleX = map(avgX, 0, fb->width, 0, 180);
+          int angleY = map(avgY, 0, fb->height, 0, 180);
 
           // 3. Constrain angles to safe servo limits
           angleX = constrain(angleX, 0, 180);
           angleY = constrain(angleY, 0, 180);
 
-          Serial.println(angleX);
+          // Serial.println(avgX);
 
-          // 4. Send angles to the servos
-          panServo.write(angleX);
+
+          if(abs(lastTargetPanAngle - angleX) > 20) {
+            //Serial.println(abs(lastTargetPanAngle - angleX));
+            lastTargetPanAngle = angleX;
+            Serial.println(angleX);
+            // 4. Send angles to the servos
+            panServo.write(angleX);
+          }
+
           // tiltServo.write(angleY);
           // panServo.write(xPos);
           // tiltServo.write(180 - yPos);
