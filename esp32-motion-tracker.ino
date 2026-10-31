@@ -26,6 +26,7 @@ float yValues[10];
 unsigned long lastFrameTime = 0;
 
 int lastTargetPanAngle = 0;
+int lastTargetTiltAngle = 0;
 
 // --- Motion Detection Configurations ---
 #define WIDTH 160
@@ -223,9 +224,17 @@ void loop() {
           if(abs(lastTargetPanAngle - angleX) > 20) {
             //Serial.println(abs(lastTargetPanAngle - angleX));
             lastTargetPanAngle = angleX;
-            Serial.println(angleX);
+            // Serial.println(angleX);
             // 4. Send angles to the servos
             panServo.write(angleX);
+          }
+
+          if(abs(lastTargetTiltAngle - angleX) > 20) {
+            //Serial.println(abs(lastTargetPanAngle - angleX));
+            lastTargetTiltAngle = angleY;
+            Serial.println(angleY);
+            // 4. Send angles to the servos
+            tiltServo.write(angleY);
           }
 
           // tiltServo.write(angleY);
