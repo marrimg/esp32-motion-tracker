@@ -1,5 +1,5 @@
 #include "esp_camera.h"
-#include <Servo.h>
+#include <ESP32Servo.h>
 
 // --- Servo Configuration ---
 #define PAN_PIN  12
@@ -22,15 +22,15 @@ bool isBlinking = false;
 float xValues[10];
 float yValues[10];
 
-// Time tracking for comparison interval
-unsigned long previousMillis = 0;
+// Time tracking for frame capture frequency
+unsigned long lastFrameTime = 0;
 
 // --- Motion Detection Configurations ---
 #define WIDTH 160
 #define HEIGHT 120
 #define BRIGHTNESS_THRESHOLD 20     // Pixel brightness change sensitivity
 #define CHANGED_PIXELS_THRESHOLD 50 // Minimum changed pixels to qualify as motion
-
+#define FRAME_CAPTURE_FREQUENCY 200
 
 uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 
@@ -55,10 +55,6 @@ uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 #define BLINK_SERVO_MIN 0
 #define BLINK_SERVO_MAX 180
 
-// Frequency for servo library
-// TODO: is this the same as the processor frequency?
-const int frequency = 200; // Hz
-
 void setup() {
   Serial.begin(115200);
 
@@ -70,35 +66,14 @@ void setup() {
   // tiltServo.write(currentTiltAngle);
   // blinkServo.write(currentBlinkAngle);
 
-panServo.attach(
-    PAN_PIN, 
-    Servo::CHANNEL_NOT_ATTACHED, 
-    Servo::DEFAULT_MIN_ANGLE, 
-    Servo::DEFAULT_MAX_ANGLE, 
-    Servo::DEFAULT_MIN_PULSE_WIDTH_US, 
-    Servo::DEFAULT_MAX_PULSE_WIDTH_US, 
-    frequency
-);
+  panServo.setPeriodHertz(50); // Standard 50Hz servo
+  panServo.attach(PAN_PIN, 500, 2500); // Attach servo with min/max pulse width
+  panServo.write(currentPanAngle);
 
-tiltServo.attach(
-    TILT_PIN, 
-    Servo::CHANNEL_NOT_ATTACHED, 
-    Servo::DEFAULT_MIN_ANGLE, 
-    Servo::DEFAULT_MAX_ANGLE, 
-    Servo::DEFAULT_MIN_PULSE_WIDTH_US, 
-    Servo::DEFAULT_MAX_PULSE_WIDTH_US, 
-    frequency
-);
+  tiltServo.setPeriodHertz(50); // Standard 50Hz servo
+  tiltServo.attach(TILT_PIN, 500, 2500); // Attach servo with min/max pulse width
+  tiltServo.write(currentTiltAngle);
 
-blinkServo.attach(
-    BLINK_PIN, 
-    Servo::CHANNEL_NOT_ATTACHED, 
-    Servo::DEFAULT_MIN_ANGLE, 
-    Servo::DEFAULT_MAX_ANGLE, 
-    Servo::DEFAULT_MIN_PULSE_WIDTH_US, 
-    Servo::DEFAULT_MAX_PULSE_WIDTH_US, 
-    frequency
-);
 
   blinkInterval = random(3, 6);
 
@@ -162,108 +137,112 @@ void loop() {
       //       blinkInterval = random(3, 6);
       //   }
       // }
+      unsigned long currentMillis = millis();
+      if (currentMillis - lastFrameTime >= FRAME_CAPTURE_FREQUENCY) {
+        lastFrameTime = currentMillis;
+        // Gets a still image frame from the camera and saves it to the variable fb
+        camera_fb_t *fb = esp_camera_fb_get();
 
-      // Gets a still image frame from the camera and saves it to the variable fb
-      camera_fb_t *fb = esp_camera_fb_get();
+        if (!fb) {
+          Serial.println("Camera capture failed");
+          return;
+        }
 
-      if (!fb) {
-        Serial.println("Camera capture failed");
-        return;
-      }
-
-      long sumX = 0;
-      long sumY = 0;
-      int changedPixelCount = 0;
+        long sumX = 0;
+        long sumY = 0;
+        int changedPixelCount = 0;
 
 
-      // Loops through all of the pixels in the frame buffer (fb)
-      for (int y = 0; y < fb->height; y++) {
-        for (int x = 0; x < fb->width; x++) {
-          // Compares the brightness of the current pixel with the brightness of the pixel in the same location in the previous frame.
-          // If the difference between the two values is greater than the BRIGHTNESS_THRESHOLD,
-          // 1. Add the value of x to sumX
-          // 2. Add the value of y to sumY
-          // 3. Increment changedPixelCount
-          int loc = x + y * fb->width;
-          uint8_t current_pixel = fb->buf[loc];
-          uint8_t old_pixel = prev_frame[loc];
-          if (abs(current_pixel - old_pixel) > BRIGHTNESS_THRESHOLD) {
-            sumX += x;
-            sumY += y;
-            changedPixelCount++;
+        // Loops through all of the pixels in the frame buffer (fb)
+        for (int y = 0; y < fb->height; y++) {
+          for (int x = 0; x < fb->width; x++) {
+            // Compares the brightness of the current pixel with the brightness of the pixel in the same location in the previous frame.
+            // If the difference between the two values is greater than the BRIGHTNESS_THRESHOLD,
+            // 1. Add the value of x to sumX
+            // 2. Add the value of y to sumY
+            // 3. Increment changedPixelCount
+            int loc = x + y * fb->width;
+            uint8_t current_pixel = fb->buf[loc];
+            uint8_t old_pixel = prev_frame[loc];
+            if (abs(current_pixel - old_pixel) > BRIGHTNESS_THRESHOLD) {
+              sumX += x;
+              sumY += y;
+              changedPixelCount++;
+            }
+            
+            // Save current frame pixel to prev_frame
+            prev_frame[loc] = current_pixel;
           }
-          
-          // Save current frame pixel to prev_frame
-          prev_frame[loc] = current_pixel;
         }
-      }
 
-      // If changedPixelCount is greater than the CHANGED_PIXELS_THRESHOLD,
-      // 
-      if (changedPixelCount > CHANGED_PIXELS_THRESHOLD) {
+        // If changedPixelCount is greater than the CHANGED_PIXELS_THRESHOLD,
+        // 
+        if (changedPixelCount > CHANGED_PIXELS_THRESHOLD) {
 
 
-        float avgX = sumX / changedPixelCount;
-        float avgY = sumY / changedPixelCount;
+          float avgX = sumX / changedPixelCount;
+          float avgY = sumY / changedPixelCount;
 
-        xSlewCount += 1;
-        if(xSlewCount > slewMax) xSlewCount = 0;
-        xValues[xSlewCount] = avgX;
-        float xSmoov = 0;
+          xSlewCount += 1;
+          if(xSlewCount > slewMax) xSlewCount = 0;
+          xValues[xSlewCount] = avgX;
+          float xSmoov = 0;
 
-        ySlewCount += 1;
-        if(ySlewCount > slewMax) ySlewCount = 0;
-        yValues[ySlewCount] = avgY;
-        float ySmoov = 0;
+          ySlewCount += 1;
+          if(ySlewCount > slewMax) ySlewCount = 0;
+          yValues[ySlewCount] = avgY;
+          float ySmoov = 0;
 
-        for(int s = 0; s < slewMax; s++) {
-          xSmoov +=  xValues[s];
-          ySmoov +=  yValues[s];
+          for(int s = 0; s < slewMax; s++) {
+            xSmoov +=  xValues[s];
+            ySmoov +=  yValues[s];
+          }
+          xSmoov /= slewMax;
+          ySmoov /= slewMax;
+
+          // xSmoov = xSmoov * -1;
+          // Serial.println(fb->height);
+          // Serial.println(fb->width);
+          // Serial.println(-xSmoov);
+
+          // 2. Map Cartesian coordinates to servo angles (0 to 180 degrees)
+          // TODO: Check xSmoov and ySmoov range
+          // long map(value, fromLow, fromHigh, toLow, toHigh);
+          int angleX = map(fb->width - xSmoov, 0, fb->width, 0, 180);
+          int angleY = map(ySmoov, 0, fb->height, 0, 180);
+
+          // 3. Constrain angles to safe servo limits
+          angleX = constrain(angleX, 0, 180);
+          angleY = constrain(angleY, 0, 180);
+
+          Serial.println(angleX);
+
+          // 4. Send angles to the servos
+          panServo.write(angleX);
+          // tiltServo.write(angleY);
+          // panServo.write(xPos);
+          // tiltServo.write(180 - yPos);
+
+          // // Calculate center deviation error (Target frame center is 80, 60)
+          // int errorX = avgX - (WIDTH / 2);
+          // int errorY = avgY - (HEIGHT / 2);
+
+          // // Serial.printf("Motion Detected! Center: X=%d, Y=%d | Error: X=%d, Y=%d\n", avgX, avgY, errorX, errorY);
+
+          // // Smooth proportional adjustments to servo angles
+          // if (abs(errorX) > 10) { // Deadzone buffer to prevent servo jittering
+          //   currentPanAngle -= (errorX > 0) ? 20 : -20; // Reverse signs if servos move backward
+          //   currentPanAngle = constrain(currentPanAngle, 10, 170);
+          //   panServo.write(currentPanAngle);
+          // }
+
+          // if (abs(errorY) > 10) {
+          //   currentTiltAngle += (errorY > 0) ? 20 : -20; 
+          //   currentTiltAngle = constrain(currentTiltAngle, 10, 170);
+          //   tiltServo.write(currentTiltAngle);
+          // }
         }
-        xSmoov /= slewMax;
-        ySmoov /= slewMax;
-
-        // xSmoov = xSmoov * -1;
-        // Serial.println(fb->height);
-        // Serial.println(fb->width);
-        // Serial.println(-xSmoov);
-
-        // 2. Map Cartesian coordinates to servo angles (0 to 180 degrees)
-        // TODO: Check xSmoov and ySmoov range
-        // long map(value, fromLow, fromHigh, toLow, toHigh);
-        int angleX = map(fb->width - xSmoov, 0, fb->width, 0, 180);
-        int angleY = map(ySmoov, 0, fb->height, 0, 180);
-
-        // 3. Constrain angles to safe servo limits
-        angleX = constrain(angleX, 0, 180);
-        angleY = constrain(angleY, 0, 180);
-
-        Serial.println(angleX);
-
-        // 4. Send angles to the servos
-        panServo.write(angleX);
-        // tiltServo.write(angleY);
-        // panServo.write(xPos);
-        // tiltServo.write(180 - yPos);
-
-        // // Calculate center deviation error (Target frame center is 80, 60)
-        // int errorX = avgX - (WIDTH / 2);
-        // int errorY = avgY - (HEIGHT / 2);
-
-        // // Serial.printf("Motion Detected! Center: X=%d, Y=%d | Error: X=%d, Y=%d\n", avgX, avgY, errorX, errorY);
-
-        // // Smooth proportional adjustments to servo angles
-        // if (abs(errorX) > 10) { // Deadzone buffer to prevent servo jittering
-        //   currentPanAngle -= (errorX > 0) ? 20 : -20; // Reverse signs if servos move backward
-        //   currentPanAngle = constrain(currentPanAngle, 10, 170);
-        //   panServo.write(currentPanAngle);
-        // }
-
-        // if (abs(errorY) > 10) {
-        //   currentTiltAngle += (errorY > 0) ? 20 : -20; 
-        //   currentTiltAngle = constrain(currentTiltAngle, 10, 170);
-        //   tiltServo.write(currentTiltAngle);
-        // }
+                esp_camera_fb_return(fb); // Release memory buffer
       }
 
           //blink
@@ -280,7 +259,7 @@ void loop() {
 
 
   // }
-        esp_camera_fb_return(fb); // Release memory buffer
+
 }
 
 // void compare_frames(const camera_fb_t *fb, const uint8_t *prev_frame){
