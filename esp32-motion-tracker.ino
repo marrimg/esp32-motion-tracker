@@ -8,7 +8,7 @@ unsigned long lastFrameTime = 0;
 #define HEIGHT 120
 #define BRIGHTNESS_THRESHOLD 100    // Pixel brightness change sensitivity
 #define CHANGED_PIXELS_THRESHOLD 20 // Minimum changed pixels to qualify as motion
-#define FRAME_CAPTURE_FREQUENCY 500
+#define FRAME_CAPTURE_FREQUENCY 200
 uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 #define PWDN_GPIO_NUM -1
 #define RESET_GPIO_NUM -1
@@ -36,7 +36,8 @@ int angleX = 0;
 int angleY = 0;
 
 //------Servo vars
-Servo servo;
+Servo panServo;
+Servo tiltServo;
 
 int mini = 100;
 int maxi = 100;
@@ -48,8 +49,11 @@ void setup()
 {
   // initialize serial:
   Serial.begin(115200); // set serial monitor baud rate to match
-  servo.write(0);
-  servo.attach(12, 544, 2400);
+  panServo.write(0);
+  panServo.attach(12, 544, 2400);
+
+  tiltServo.write(0);
+  tiltServo.attach(13, 544, 2400);
 
   // Camera config
   camera_config_t config;
@@ -135,7 +139,7 @@ void loop()
       avgY = sumY / changedPixelCount;
 
       angleX = map(avgX, 0, fb->width, 0, 180);
-      angleY = map(avgY, 0, fb->height, 0, 180);
+      angleY = map(fb->height - avgY, 0, fb->height, 0, 180);
 
       // 3. Constrain angles to safe servo limits
       angleX = constrain(angleX, 0, 180);
@@ -145,6 +149,9 @@ void loop()
     Serial.print("var1:");
     Serial.print(angleX);
     Serial.println();
+
+    panServo.write(angleX);
+    tiltServo.write(angleY);
 
     esp_camera_fb_return(fb); // Release memory buffer
   }
