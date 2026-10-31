@@ -1,0 +1,14 @@
+profiles:
+  profile-1793467397212:
+    fqbn: esp32:esp32:esp32wrover:UploadSpeed=115200,FlashFreq=80,FlashMode=qio,PartitionScheme=huge_app,DebugLevel=none,EraseFlash=none
+    platforms:
+      - platform: esp32:esp32 (3.0.7)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      - ESP32Servo (3.2.1)
+    port: /dev/cu.usbserial-110
+    port_config:
+      baudrate: "115200"
+      bits: "8"
+      parity: none
+      stop_bits: one
