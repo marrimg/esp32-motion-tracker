@@ -7,7 +7,7 @@ unsigned long lastFrameTime = 0;
 #define WIDTH 160
 #define HEIGHT 120
 #define BRIGHTNESS_THRESHOLD 100    // Pixel brightness change sensitivity
-#define CHANGED_PIXELS_THRESHOLD 20 // Minimum changed pixels to qualify as motion
+#define CHANGED_PIXELS_THRESHOLD 25 // Minimum changed pixels to qualify as motion
 #define FRAME_CAPTURE_FREQUENCY 200
 uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 #define PWDN_GPIO_NUM -1
@@ -27,9 +27,6 @@ uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 #define HREF_GPIO_NUM 23
 #define PCLK_GPIO_NUM 22
 
-#define BLINK_SERVO_MIN 0
-#define BLINK_SERVO_MAX 180
-
 float avgX = 0;
 float avgY = 0;
 int angleX = 0;
@@ -39,20 +36,20 @@ int angleY = 0;
 Servo panServo;
 Servo tiltServo;
 
-int mini = 100;
-int maxi = 100;
-unsigned long prevMillis = 0;
-const long interval = 1000; // Minimal delay time between servo changes
-int flip = 0;               // For testing, flip between min/max values per servo change
+// int mini = 100;
+// int maxi = 100;
+// unsigned long prevMillis = 0;
+// const long interval = 1000; // Minimal delay time between servo changes
+// int flip = 0; // For testing, flip between min/max values per servo change
 
 void setup()
 {
   // initialize serial:
   Serial.begin(115200); // set serial monitor baud rate to match
-  panServo.write(0);
+  panServo.write(90);
   panServo.attach(12, 544, 2400);
 
-  tiltServo.write(0);
+  tiltServo.write(90);
   tiltServo.attach(13, 544, 2400);
 
   // Camera config
@@ -139,16 +136,16 @@ void loop()
       avgY = sumY / changedPixelCount;
 
       angleX = map(avgX, 0, fb->width, 0, 180);
-      angleY = map(fb->height - avgY, 0, fb->height, 0, 180);
+      angleY = map(avgY, 0, fb->height, 0, 180);
 
       // 3. Constrain angles to safe servo limits
       angleX = constrain(angleX, 0, 180);
       angleY = constrain(angleY, 0, 180);
     }
-    Serial.print(">");
-    Serial.print("var1:");
-    Serial.print(angleX);
-    Serial.println();
+    // Serial.print(">");
+    // Serial.print("var1:");
+    // Serial.print(angleY);
+    // Serial.println();
 
     panServo.write(angleX);
     tiltServo.write(angleY);
