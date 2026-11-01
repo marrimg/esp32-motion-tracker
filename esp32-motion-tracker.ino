@@ -9,6 +9,9 @@ unsigned long lastFrameTime = 0;
 #define BRIGHTNESS_THRESHOLD 100    // Pixel brightness change sensitivity
 #define CHANGED_PIXELS_THRESHOLD 25 // Minimum changed pixels to qualify as motion
 #define FRAME_CAPTURE_FREQUENCY 200
+#define SERVO_UPDATE_INTERVAL 20
+#define SERVO_SMOOTHING 0.25f
+#define SERVO_STEP_DEGREES 1.0f
 uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 #define PWDN_GPIO_NUM -1
 #define RESET_GPIO_NUM -1
@@ -31,6 +34,9 @@ float avgX = 0;
 float avgY = 0;
 int angleX = 0;
 int angleY = 0;
+float targetAngleY = 90.0f;
+float commandedAngleY = 90.0f;
+unsigned long lastServoUpdate = 0;
 
 //------Servo vars
 Servo panServo;
@@ -92,6 +98,13 @@ void loop()
 {
   unsigned long currentMillis = millis();
 
+  if (currentMillis - lastServoUpdate >= SERVO_UPDATE_INTERVAL)
+  {
+    lastServoUpdate = currentMillis;
+    commandedAngleY += constrain(targetAngleY - commandedAngleY, -SERVO_STEP_DEGREES, SERVO_STEP_DEGREES);
+    tiltServo.write((int)round(commandedAngleY));
+  }
+
   // Camera
   if (currentMillis - lastFrameTime >= FRAME_CAPTURE_FREQUENCY)
   {
@@ -141,14 +154,14 @@ void loop()
       // 3. Constrain angles to safe servo limits
       angleX = constrain(angleX, 0, 180);
       angleY = constrain(angleY, 0, 180);
+      targetAngleY += SERVO_SMOOTHING * (angleY - targetAngleY);
     }
-    // Serial.print(">");
-    // Serial.print("var1:");
-    // Serial.print(angleY);
-    // Serial.println();
+    Serial.print(">");
+    Serial.print("var1:");
+    Serial.print(angleY);
+    Serial.println();
 
-    panServo.write(angleX);
-    tiltServo.write(angleY);
+    // panServo.write(angleX);
 
     esp_camera_fb_return(fb); // Release memory buffer
   }
