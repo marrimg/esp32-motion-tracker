@@ -159,12 +159,12 @@ void loop()
       avgX = sumX / changedPixelCount;
       avgY = sumY / changedPixelCount;
 
-      angleX = map(avgX, 0, fb->width, 0, 180);
-      angleY = map(avgY, 0, fb->height, 0, 180);
+      angleX = map(avgX, 0, fb->width, 0, 160);
+      angleY = map(avgY, 0, fb->height, 0, 160);
 
       // 3. Constrain angles to safe servo limits
-      angleX = constrain(angleX, 0, 180);
-      angleY = constrain(angleY, 0, 180);
+      angleX = constrain(angleX, 0, 160);
+      angleY = constrain(angleY, 0, 160);
       targetAngleX += SERVO_SMOOTHING * (angleX - targetAngleX);
       targetAngleY += SERVO_SMOOTHING * (angleY - targetAngleY);
     }
