@@ -1,11 +1,9 @@
 #include "esp_camera.h"
 #include <ESP32Servo.h>
 
-//--------Cam vars
 unsigned long lastFrameTime = 0;
-// --- Motion Detection Configurations ---
-#define WIDTH 160
-#define HEIGHT 120
+
+// MOTION DETECTION SETTINGS - OK TO EDIT
 #define BRIGHTNESS_THRESHOLD 100    // Pixel brightness change sensitivity
 #define CHANGED_PIXELS_THRESHOLD 25 // Minimum changed pixels to qualify as motion
 #define FRAME_CAPTURE_FREQUENCY 200
@@ -13,6 +11,10 @@ unsigned long lastFrameTime = 0;
 #define SERVO_SMOOTHING 0.9f
 #define SERVO_DEADBAND 1.5f
 #define SERVO_STEP_DEGREES 5.0f
+// DON'T EDIT BELOW THIS LINE
+
+#define WIDTH 160
+#define HEIGHT 120
 uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 #define PWDN_GPIO_NUM -1
 #define RESET_GPIO_NUM -1
@@ -40,16 +42,10 @@ float targetAngleY = 90.0f;
 float commandedAngleX = 90.0f;
 float commandedAngleY = 90.0f;
 unsigned long lastServoUpdate = 0;
+//
 
-//------Servo vars
 Servo panServo;
 Servo tiltServo;
-
-// int mini = 100;
-// int maxi = 100;
-// unsigned long prevMillis = 0;
-// const long interval = 1000; // Minimal delay time between servo changes
-// int flip = 0; // For testing, flip between min/max values per servo change
 
 void setup()
 {
@@ -179,47 +175,4 @@ void loop()
 
     esp_camera_fb_return(fb); // Release memory buffer
   }
-
-  // Write to servos
 }
-
-/*
-// grab test servo vals
-    if (Serial.available() > 0)
-    {
-
-      maxi = Serial.parseInt();
-      mini = Serial.parseInt();
-
-      // Look for the newline/carriage return character to clear the buffer
-      if (Serial.read() == '\n' || Serial.read() == '\r')
-      {
-        // Data fully read
-      }
-
-      if (maxi != 0)
-      {
-        Serial.print("Maxi: ");
-        Serial.println(maxi);
-      }
-
-      Serial.print("Mini: ");
-      Serial.println(mini);
-    }
-
-
-    if ((currentMillis - prevMillis) > interval)
-    {
-      prevMillis = millis();
-
-      flip = !flip; // Flip is just for this test
-
-      if (flip == 0)
-        servo.write(mini);
-      // delay(1000);
-      if (flip == 1)
-        servo.write(maxi);
-      // delay(1000);
-    }
-
-*/
