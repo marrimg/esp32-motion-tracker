@@ -9,6 +9,10 @@ unsigned long lastFrameTime = 0;
 #define BRIGHTNESS_THRESHOLD 100    // Pixel brightness change sensitivity
 #define CHANGED_PIXELS_THRESHOLD 25 // Minimum changed pixels to qualify as motion
 #define FRAME_CAPTURE_FREQUENCY 200
+#define SERVO_UPDATE_INTERVAL 1
+#define SERVO_SMOOTHING 0.9f
+#define SERVO_DEADBAND 1.5f
+#define SERVO_STEP_DEGREES 5.0f
 uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 #define PWDN_GPIO_NUM -1
 #define RESET_GPIO_NUM -1
@@ -29,8 +33,13 @@ uint8_t prev_frame[WIDTH * HEIGHT] = {0};
 
 float avgX = 0;
 float avgY = 0;
-int angleX = 0;
-int angleY = 0;
+int angleX = 90;
+int angleY = 90;
+float targetAngleX = 90.0f;
+float targetAngleY = 90.0f;
+float commandedAngleX = 90.0f;
+float commandedAngleY = 90.0f;
+unsigned long lastServoUpdate = 0;
 
 //------Servo vars
 Servo panServo;
@@ -92,6 +101,25 @@ void loop()
 {
   unsigned long currentMillis = millis();
 
+  if (currentMillis - lastServoUpdate >= SERVO_UPDATE_INTERVAL)
+  {
+    lastServoUpdate = currentMillis;
+
+    float errorX = targetAngleX - commandedAngleX;
+    if (errorX >= SERVO_DEADBAND || errorX <= -SERVO_DEADBAND)
+    {
+      commandedAngleX += constrain(errorX, -SERVO_STEP_DEGREES, SERVO_STEP_DEGREES);
+      panServo.write((int)round(commandedAngleX));
+    }
+
+    float errorY = targetAngleY - commandedAngleY;
+    if (errorY >= SERVO_DEADBAND || errorY <= -SERVO_DEADBAND)
+    {
+      commandedAngleY += constrain(errorY, -SERVO_STEP_DEGREES, SERVO_STEP_DEGREES);
+      tiltServo.write((int)round(commandedAngleY));
+    }
+  }
+
   // Camera
   if (currentMillis - lastFrameTime >= FRAME_CAPTURE_FREQUENCY)
   {
@@ -141,14 +169,13 @@ void loop()
       // 3. Constrain angles to safe servo limits
       angleX = constrain(angleX, 0, 180);
       angleY = constrain(angleY, 0, 180);
+      targetAngleX += SERVO_SMOOTHING * (angleX - targetAngleX);
+      targetAngleY += SERVO_SMOOTHING * (angleY - targetAngleY);
     }
     // Serial.print(">");
     // Serial.print("var1:");
     // Serial.print(angleY);
     // Serial.println();
-
-    panServo.write(angleX);
-    tiltServo.write(angleY);
 
     esp_camera_fb_return(fb); // Release memory buffer
   }
